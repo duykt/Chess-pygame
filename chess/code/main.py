@@ -2,7 +2,7 @@
 # 1.) Check
 # 2.) Checkmate
 # 3.) En Passant
-# 4.) UI - expand todo for ui
+# 4.) UI - expand
 
 import pygame
 from settings import *
@@ -60,220 +60,121 @@ class Game:
         for move in moves:
             pygame.draw.circle(self.display_surface, (130, 151, 105),
                                ((move[0] * TILESIZE + TILESIZE/2), (self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE/2)), 10)
-    def pawn_moves(self, pos) -> list:
-        if self.white_turn:
+
+    def get_moves(self, piece, pos, enemy_pos=None, reverse=False) -> list:
+        if self.white_turn or reverse:
             ally_pos = self.white_position
-            enemy_pos = self.black_position
+            if enemy_pos is None:
+                enemy_pos = self.black_position
         else:
             ally_pos = self.black_position
-            enemy_pos = self.white_position
+            if enemy_pos is None:
+                enemy_pos = self.white_position
         possible_moves = []
 
-        # check vertical moves
-        if self.white_turn:
-            for y in range(1, 3 if pos[1] == 1 else 2):
-                if (pos[0], pos[1] + y) in enemy_pos:
-                    break
-                elif (pos[0], pos[1] + y) not in ally_pos:
-                    possible_moves.append((pos[0], pos[1] + y))
-                else: break
-        else:
-            for y in range(-1, -3 if pos[1] == 6 else -2,  -1):
-                if (pos[0], pos[1] + y) in enemy_pos:
-                    break
-                elif (pos[0], pos[1] + y) not in ally_pos:
-                    possible_moves.append((pos[0], pos[1] + y))
-                else: break
+        if piece == 'pawn':
+            # check vertical moves
+            if self.white_turn:
+                for y in range(1, 3 if pos[1] == 1 else 2):
+                    if (pos[0], pos[1] + y) in enemy_pos:
+                        break
+                    elif (pos[0], pos[1] + y) not in ally_pos:
+                        possible_moves.append((pos[0], pos[1] + y))
+                    else: break
+            else:
+                for y in range(-1, -3 if pos[1] == 6 else -2,  -1):
+                    if (pos[0], pos[1] + y) in enemy_pos:
+                        break
+                    elif (pos[0], pos[1] + y) not in ally_pos:
+                        possible_moves.append((pos[0], pos[1] + y))
+                    else: break
 
-        # check if pawn can take diagonally
-        for x in [-1, 1]:
-            y = 1 if self.white_turn else -1
-            if (pos[0] + x, pos[1] + y) in enemy_pos:
-                possible_moves.append((pos[0] + x, pos[1] + y))
-
-        return possible_moves
-
-    def knight_moves(self, pos) -> list:
-        if self.white_turn:
-            ally_pos = self.white_position
-        else:
-            ally_pos = self.black_position
-        possible_moves = []
-
-        # vertical movement
-        for vert in [x for x in range(-2, 3, 2) if x != 0]:
-            for hor in range(-1, 2, 2):
-                if self.white_turn:
-                    if (pos[0] + hor, pos[1] + vert) not in self.white_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
-                        possible_moves.append((pos[0] + hor, pos[1] + vert))
-                else:
-                    if (pos[0] + hor, pos[1] + vert) not in self.black_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
-                        possible_moves.append((pos[0] + hor, pos[1] + vert))
-
-        # horizontal movement
-        for hor in [x for x in range(-2, 3, 2) if x != 0]:
-            for vert in range(-1, 2, 2):
-                if (pos[0] + hor, pos[1] + vert) not in ally_pos and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
-                        possible_moves.append((pos[0] + hor, pos[1] + vert))
-
-        return possible_moves
-
-    def bishop_moves(self, pos) -> list:
-        if self.white_turn:
-            ally_pos = self.white_position
-            enemy_pos = self.black_position
-        else:
-            ally_pos = self.black_position
-            enemy_pos = self.white_position
-        possible_moves = []
-
-        # top left
-        for target in [(-x, x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # bottom left
-        for target in [(-x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # top right
-        for target in [(x, x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # bottom right
-        for target in [(x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        return possible_moves
-
-    def rook_moves(self, pos) -> list:
-        if self.white_turn:
-            ally_pos = self.white_position
-            enemy_pos = self.black_position
-        else:
-            ally_pos = self.black_position
-            enemy_pos = self.white_position
-        possible_moves = []
-
-        # right
-        for x in [i for i in range(1, 8)]:
-            if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
-                possible_moves.append((pos[0] + x, pos[1]))
-                if (pos[0] + x, pos[1]) in enemy_pos: break
-            else: break
-
-        # left
-        for x in [i for i in range(-1, -8, -1)]:
-            if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
-                possible_moves.append((pos[0] + x, pos[1]))
-                if (pos[0] + x, pos[1]) in enemy_pos: break
-            else: break
-
-        # up
-        for y in [i for i in range(1, 8)]:
-            if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
-                possible_moves.append((pos[0], pos[1] + y))
-                if (pos[0], pos[1] + y) in enemy_pos: break
-            else: break
-
-        # down
-        for y in [i for i in range(-1, -8, -1)]:
-            if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
-                possible_moves.append((pos[0], pos[1] + y))
-                if (pos[0], pos[1] + y) in enemy_pos: break
-            else: break
-
-        return possible_moves
-
-    def queen_moves(self, pos) -> list:
-        if self.white_turn:
-            ally_pos = self.white_position
-            enemy_pos = self.black_position
-        else:
-            ally_pos = self.black_position
-            enemy_pos = self.white_position
-        possible_moves = []
-
-        # right
-        for x in [i for i in range(1, 8)]:
-            if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
-                possible_moves.append((pos[0] + x, pos[1]))
-                if (pos[0] + x, pos[1]) in enemy_pos: break
-            else: break
-
-        # left
-        for x in [i for i in range(-1, -8, -1)]:
-            if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
-                possible_moves.append((pos[0] + x, pos[1]))
-                if (pos[0] + x, pos[1]) in enemy_pos: break
-            else: break
-
-        # up
-        for y in [i for i in range(1, 8)]:
-            if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
-                possible_moves.append((pos[0], pos[1] + y))
-                if (pos[0], pos[1] + y) in enemy_pos: break
-            else: break
-
-        # down
-        for y in [i for i in range(-1, -8, -1)]:
-            if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
-                possible_moves.append((pos[0], pos[1] + y))
-                if (pos[0], pos[1] + y) in enemy_pos: break
-            else: break
-
-         # top left
-        for target in [(-x, x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # bottom left
-        for target in [(-x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # top right
-        for target in [(x, x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # bottom right
-        for target in [(x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        return possible_moves
-
-    def king_moves(self, pos)-> list:
-        if self.white_turn:
-            ally_pos = self.white_position
-        else:
-            ally_pos = self.black_position
-        possible_moves = []
-
-        for x in range(-1, 2):
-            for y in range(-1, 2):
-                if (pos[0] + x, pos[1] + y) not in ally_pos and 0 <= pos[0] + x < 8 and 0 <= pos[1] + y < 8 and (x, y) != (0,0):
+            # check if pawn can take diagonally
+            for x in [-1, 1]:
+                y = 1 if self.white_turn else -1
+                if (pos[0] + x, pos[1] + y) in enemy_pos:
                     possible_moves.append((pos[0] + x, pos[1] + y))
+
+        if piece == 'knight':
+            # vertical movement
+            for vert in [x for x in range(-2, 3, 2) if x != 0]:
+                for hor in range(-1, 2, 2):
+                    if self.white_turn:
+                        if (pos[0] + hor, pos[1] + vert) not in self.white_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
+                            possible_moves.append((pos[0] + hor, pos[1] + vert))
+                    else:
+                        if (pos[0] + hor, pos[1] + vert) not in self.black_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
+                            possible_moves.append((pos[0] + hor, pos[1] + vert))
+
+            # horizontal movement
+            for hor in [x for x in range(-2, 3, 2) if x != 0]:
+                for vert in range(-1, 2, 2):
+                    if (pos[0] + hor, pos[1] + vert) not in ally_pos and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
+                            possible_moves.append((pos[0] + hor, pos[1] + vert))
+
+        if piece == 'bishop' or piece == 'queen':
+            # top left
+            for target in [(-x, x) for x in range(1, 8)]:
+                if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
+                    possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
+                    if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
+                else: break
+
+            # bottom left
+            for target in [(-x, -x) for x in range(1, 8)]:
+                if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
+                    possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
+                    if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
+                else: break
+
+            # top right
+            for target in [(x, x) for x in range(1, 8)]:
+                if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
+                    possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
+                    if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
+                else: break
+
+            # bottom right
+            for target in [(x, -x) for x in range(1, 8)]:
+                if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
+                    possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
+                    if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
+                else: break
+
+        if piece == 'rook' or piece == 'queen':
+            # right
+            for x in [i for i in range(1, 8)]:
+                if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
+                    possible_moves.append((pos[0] + x, pos[1]))
+                    if (pos[0] + x, pos[1]) in enemy_pos: break
+                else: break
+
+            # left
+            for x in [i for i in range(-1, -8, -1)]:
+                if (pos[0] + x, pos[1]) not in ally_pos and 0 <= pos[0] + x < 8:
+                    possible_moves.append((pos[0] + x, pos[1]))
+                    if (pos[0] + x, pos[1]) in enemy_pos: break
+                else: break
+
+            # up
+            for y in [i for i in range(1, 8)]:
+                if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
+                    possible_moves.append((pos[0], pos[1] + y))
+                    if (pos[0], pos[1] + y) in enemy_pos: break
+                else: break
+
+            # down
+            for y in [i for i in range(-1, -8, -1)]:
+                if (pos[0], pos[1] + y) not in ally_pos and 0 <= pos[1] + y < 8:
+                    possible_moves.append((pos[0], pos[1] + y))
+                    if (pos[0], pos[1] + y) in enemy_pos: break
+                else: break
+
+        if piece == 'king':
+            for x in range(-1, 2):
+                for y in range(-1, 2):
+                    if (pos[0] + x, pos[1] + y) not in ally_pos and 0 <= pos[0] + x < 8 and 0 <= pos[1] + y < 8 and (x, y) != (0,0):
+                        possible_moves.append((pos[0] + x, pos[1] + y))
 
         return possible_moves
 
@@ -289,60 +190,42 @@ class Game:
                 self.white_position.remove(pos)
                 self.black_taken.append(taken_piece)
 
-    def check(self, piece, pos):
+    def check(self, ally_pos=None):
         if self.white_turn:
-            ally_pos = self.white_position
+            enemy_pieces = self.black_pieces
             enemy_pos = self.black_position
-            king_pos = self.black_position[self.black_pieces.index('king')]
+            if ally_pos:
+                king_pos = ally_pos[self.white_pieces.index('king')]
+            else:
+                king_pos = self.white_position[self.white_pieces.index('king')]
         else:
-            ally_pos = self.black_position
-            enemy_pos = self.white_position[self.white_pieces.index('king')]
-            king_pos = self.white_position[self.white_pieces.index('king')]
-
-        # check pawn and knight
-        match piece:
-            case 'pawn' : possible_moves = self.pawn_moves(pos)
-            case 'knight': possible_moves = self.knight_moves(pos)
-        if king_pos in possible_moves:
-            self.king_checked = True
-
-        # bishop, rook, queen; also covering discover check
-
-        # top left
-        for target in [(-x, x) for x in range(1, 8)]:
-            if 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                break
-            if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos:
+            enemy_pieces = self.white_pieces
+            enemy_pos = self.white_position
+            if ally_pos:
+                king_pos = ally_pos[self.black_pieces.index('king')]
+            else:
+                king_pos = self.black_position[self.black_pieces.index('king')]
 
 
+        enemy_possible_moves = set()
+        if self.white_turn:
+            self.white_turn = False
+        else:
+            self.white_turn = True
 
+        for i in range(len(enemy_pieces)):
+            for move in self.get_moves(enemy_pieces[i], enemy_pos[i], ally_pos):
+                enemy_possible_moves.add(move)
 
-        # bottom left
-        for target in [(-x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
+        if self.white_turn:
+            self.white_turn = False
+        else:
+            self.white_turn = True
 
-        # top right
-        for target in [(x, x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-        # bottom right
-        for target in [(x, -x) for x in range(1, 8)]:
-            if (pos[0] + target[0], pos[1] + target[1]) not in ally_pos and 0 <= pos[0] + target[0] < 8 and 0 <= pos[1] + target[1] < 8:
-                possible_moves.append((pos[0] + target[0], pos[1] + target[1]))
-                if (pos[0] + target[0], pos[1] + target[1]) in enemy_pos: break
-            else: break
-
-
+        return king_pos in enemy_possible_moves
 
     def run(self):
         while self.running:
-            dt = self.clock.tick() / 1000
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -371,26 +254,30 @@ class Game:
                                 if self.white_turn:
                                     self.white_position[self.white_position.index(piece_pos)] = move
                                     self.take_piece(move)
-                                    self.check(last_selected_piece, move)
                                     self.white_turn = False
+                                    self.king_checked = self.check()
                                 else:
                                     self.black_position[self.black_position.index(piece_pos)] = move
                                     self.take_piece(move)
                                     self.white_turn = True
+                                    self.king_checked = self.check()
                                 pygame.draw.rect(self.display_surface, (130, 151, 105), (move[0] * TILESIZE, self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
                     except UnboundLocalError:
                         pass
 
                     # determine possible moves of selected piece
                     if selected_piece:
-                        match selected_piece:
-                            case 'pawn': moves = self.pawn_moves(mouse_pos)
-                            case 'knight': moves = self.knight_moves(mouse_pos)
-                            case 'bishop': moves = self.bishop_moves(mouse_pos)
-                            case 'rook': moves = self.rook_moves(mouse_pos)
-                            case 'queen': moves = self.queen_moves(mouse_pos)
-                            case 'king': moves = self.king_moves(mouse_pos)
-                        last_selected_piece = selected_piece
+                        moves = self.get_moves(selected_piece, mouse_pos)
+                        if self.king_checked:
+                            for move in moves:
+                                if self.white_turn:
+                                    temp_pos = [pos for pos in self.white_position]
+                                    temp_pos[self.white_pieces.index(selected_piece)] = move
+                                else:
+                                    temp_pos = [pos for pos in self.black_position]
+                                    temp_pos[self.black_pieces.index(selected_piece)] = move
+                                print(temp_pos)
+                                print(self.black_position)
                     else:
                         moves = []
 
