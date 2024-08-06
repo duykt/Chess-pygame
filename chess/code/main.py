@@ -2,11 +2,12 @@
 # 1.) Check
 # 2.) Checkmate
 # 3.) En Passant
-# 4.) UI - expand
+# 4.) Castling
 
 import pygame
 from settings import *
 from support import  *
+import time
 
 class Game:
     def __init__(self):
@@ -37,7 +38,8 @@ class Game:
         # data
         self.white_taken = []
         self.black_taken = []
-        self.moves_list = []
+        self.moves_list = {}
+        self.move_count = 0
 
         self.update_board()
 
@@ -61,13 +63,15 @@ class Game:
             pygame.draw.circle(self.display_surface, (130, 151, 105),
                                ((move[0] * TILESIZE + TILESIZE/2), (self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE/2)), 10)
 
-    def get_moves(self, piece, pos, enemy_pos=None, reverse=False) -> list:
-        if self.white_turn or reverse:
-            ally_pos = self.white_position
+    def get_moves(self, piece, pos, enemy_pos=None, ally_pos=None) -> list:
+        if self.white_turn:
+            if ally_pos is None:
+                ally_pos = self.white_position
             if enemy_pos is None:
                 enemy_pos = self.black_position
         else:
-            ally_pos = self.black_position
+            if ally_pos is None:
+                ally_pos = self.black_position
             if enemy_pos is None:
                 enemy_pos = self.white_position
         possible_moves = []
@@ -94,6 +98,10 @@ class Game:
                 y = 1 if self.white_turn else -1
                 if (pos[0] + x, pos[1] + y) in enemy_pos:
                     possible_moves.append((pos[0] + x, pos[1] + y))
+
+            # check for en passant
+
+
 
         if piece == 'knight':
             # vertical movement
@@ -176,6 +184,8 @@ class Game:
                     if (pos[0] + x, pos[1] + y) not in ally_pos and 0 <= pos[0] + x < 8 and 0 <= pos[1] + y < 8 and (x, y) != (0,0):
                         possible_moves.append((pos[0] + x, pos[1] + y))
 
+
+
         return possible_moves
 
     def take_piece(self, pos):
@@ -190,17 +200,23 @@ class Game:
                 self.white_position.remove(pos)
                 self.black_taken.append(taken_piece)
 
-    def check(self, ally_pos=None):
+
+
+    def check(self, ally_pos=None, enemy_pos=None, enemy_pieces=None):
         if self.white_turn:
-            enemy_pieces = self.black_pieces
-            enemy_pos = self.black_position
+            if enemy_pieces is None:
+                enemy_pieces = self.black_pieces
+            if enemy_pos is None:
+                enemy_pos = self.black_position
             if ally_pos:
                 king_pos = ally_pos[self.white_pieces.index('king')]
             else:
                 king_pos = self.white_position[self.white_pieces.index('king')]
         else:
-            enemy_pieces = self.white_pieces
-            enemy_pos = self.white_position
+            if enemy_pieces is None:
+                enemy_pieces = self.white_pieces
+            if enemy_pos is None:
+                enemy_pos = self.white_position
             if ally_pos:
                 king_pos = ally_pos[self.black_pieces.index('king')]
             else:
@@ -224,8 +240,43 @@ class Game:
 
         return king_pos in enemy_possible_moves
 
+    def get_checked_moves(self, moves, selected_piece):
+        valid_moves = []
+        for move in moves:
+            if self.white_turn:
+                temp_pos = [pos for pos in self.white_position]
+                temp_pos[self.white_pieces.index(selected_piece)] = move
+
+                enemy_pos = [pos for pos in self.black_position]
+                enemy_pieces = [piece for piece in self.black_pieces]
+
+            else:
+                temp_pos = [pos for pos in self.black_position]
+                temp_pos[self.black_pieces.index(selected_piece)] = move
+
+                enemy_pos = [pos for pos in self.white_position]
+                enemy_pieces = [piece for piece in self.white_pieces]
+            if not self.check(temp_pos):
+                valid_moves.append(move)
+
+            if move in enemy_pos:
+                enemy_pieces.pop(enemy_pos.index(move))
+                enemy_pos.remove(move)
+
+                if not self.check(temp_pos, enemy_pos, enemy_pieces):
+                    valid_moves.append(move)
+
+        return valid_moves
+
+    def add_moves_list(self, piece, pos, category):
+        self.move_count += 1
+        self.moves_list[self.move_count] = (piece, pos, category)
+        print(self.moves_list)
+
+
     def run(self):
         while self.running:
+            dt = self.clock.tick() / 1000
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -252,37 +303,56 @@ class Game:
                         for move in moves:
                             if mouse_pos == move:
                                 if self.white_turn:
-                                    self.white_position[self.white_position.index(piece_pos)] = move
-                                    self.take_piece(move)
-                                    self.white_turn = False
-                                    self.king_checked = self.check()
+                                    try:
+                                        original_pos = piece_pos
+                                        print(original_pos)
+                                        self.white_position[self.white_position.index(piece_pos)] = move
+                                        self.take_piece(move)
+                                        self.white_turn = False
+                                        self.king_checked = self.check()
+                                    except ValueError: pass
                                 else:
-                                    self.black_position[self.black_position.index(piece_pos)] = move
-                                    self.take_piece(move)
-                                    self.white_turn = True
-                                    self.king_checked = self.check()
+                                    try:
+                                        self.black_position[self.black_position.index(piece_pos)] = move
+                                        self.take_piece(move)
+                                        self.white_turn = True
+                                        self.king_checked = self.check()
+                                    except ValueError: pass
                                 pygame.draw.rect(self.display_surface, (130, 151, 105), (move[0] * TILESIZE, self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+
                     except UnboundLocalError:
                         pass
 
                     # determine possible moves of selected piece
                     if selected_piece:
+                        last_selected_piece = selected_piece
                         moves = self.get_moves(selected_piece, mouse_pos)
                         if self.king_checked:
-                            for move in moves:
-                                if self.white_turn:
-                                    temp_pos = [pos for pos in self.white_position]
-                                    temp_pos[self.white_pieces.index(selected_piece)] = move
-                                else:
-                                    temp_pos = [pos for pos in self.black_position]
-                                    temp_pos[self.black_pieces.index(selected_piece)] = move
-                                print(temp_pos)
-                                print(self.black_position)
+                            moves = self.get_checked_moves(moves, selected_piece)
                     else:
                         moves = []
 
+                    # Calculate checkmate
+                    if self.king_checked:
+                        if self.white_turn:
+                            pairs = [(self.white_pieces[i], self.white_position[i]) for i in range(len(self.white_pieces))]
+                        else:
+                            pairs = [(self.black_pieces[i], self.black_position[i]) for i in range(len(self.black_pieces))]
+                        if any(len(self.get_checked_moves(self.get_moves(pair[0], pair[1]), pair[0])) != 0 for pair in pairs):
+                            pass
+                        else:
+                            print('checkmate')
+
+                    # draw 'checked' indicator
+                    if self.king_checked:
+                        king_pos = self.white_position[self.white_pieces.index('king')] if self.white_turn else self.black_position[self.black_pieces.index('king')]
+                        pygame.draw.rect(self.display_surface, (231, 31, 17), (king_pos[0] * TILESIZE, self.board_rect.bottomleft[1] - king_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+
+
                     self.update_board()
                     self.draw_moves(moves)
+
+
             # draw
             pygame.display.update()
 
