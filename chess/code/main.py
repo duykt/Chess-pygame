@@ -1,8 +1,8 @@
-# TO DO:
-# 1.) Check
-# 2.) Checkmate
-# 3.) En Passant
-# 4.) Castling
+# TODO:
+#  1.) Moves list
+#  2.) En passant
+#  3.) castling
+#  4.) UI
 
 import pygame
 from settings import *
@@ -43,6 +43,7 @@ class Game:
 
         self.update_board()
 
+
     def update_board(self):
         for i in range(len(self.white_pieces)):
             image = pygame.transform.scale_by(self.white_surfs[self.white_pieces[i]], 5)
@@ -54,27 +55,40 @@ class Game:
             rect = image.get_frect(bottomleft=(self.board_rect.bottomleft[0] + self.black_position[i][0] * TILESIZE, self.board_rect.bottomleft[1] - self.black_position[i][1] * TILESIZE))
             self.display_surface.blit(image, rect)
 
+
     def import_assets(self):
         self.white_surfs = folder_importer('..', 'images', 'white pieces')
         self.black_surfs = folder_importer('..', 'images', 'black pieces')
+
 
     def draw_moves(self, moves):
         for move in moves:
             pygame.draw.circle(self.display_surface, (130, 151, 105),
                                ((move[0] * TILESIZE + TILESIZE/2), (self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE/2)), 10)
 
-    def get_moves(self, piece, pos, enemy_pos=None, ally_pos=None) -> list:
+
+    def get_moves(self, piece, pos, enemy=None, ally=None) -> list:
         if self.white_turn:
-            if ally_pos is None:
+            if ally is None:
                 ally_pos = self.white_position
-            if enemy_pos is None:
+            else:
+                ally_pos = ally
+            if enemy is None:
                 enemy_pos = self.black_position
+            else:
+                enemy_pos = enemy
         else:
-            if ally_pos is None:
+            if ally is None:
                 ally_pos = self.black_position
-            if enemy_pos is None:
+            else:
+                ally_pos = ally
+            if enemy is None:
                 enemy_pos = self.white_position
+            else:
+                enemy_pos = enemy
         possible_moves = []
+
+
 
         if piece == 'pawn':
             # check vertical moves
@@ -93,6 +107,7 @@ class Game:
                         possible_moves.append((pos[0], pos[1] + y))
                     else: break
 
+
             # check if pawn can take diagonally
             for x in [-1, 1]:
                 y = 1 if self.white_turn else -1
@@ -102,16 +117,15 @@ class Game:
             # check for en passant
 
 
-
         if piece == 'knight':
             # vertical movement
             for vert in [x for x in range(-2, 3, 2) if x != 0]:
                 for hor in range(-1, 2, 2):
                     if self.white_turn:
-                        if (pos[0] + hor, pos[1] + vert) not in self.white_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
+                        if (pos[0] + hor, pos[1] + vert) not in ally_pos and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
                             possible_moves.append((pos[0] + hor, pos[1] + vert))
                     else:
-                        if (pos[0] + hor, pos[1] + vert) not in self.black_position and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
+                        if (pos[0] + hor, pos[1] + vert) not in ally_pos and 0 <= pos[0] + hor < 8 and 0 <= pos[1] + vert < 8:
                             possible_moves.append((pos[0] + hor, pos[1] + vert))
 
             # horizontal movement
@@ -184,22 +198,24 @@ class Game:
                     if (pos[0] + x, pos[1] + y) not in ally_pos and 0 <= pos[0] + x < 8 and 0 <= pos[1] + y < 8 and (x, y) != (0,0):
                         possible_moves.append((pos[0] + x, pos[1] + y))
 
-
-
         return possible_moves
 
-    def take_piece(self, pos):
+
+    def take_piece(self, pos) -> bool:
         if self.white_turn:
             if pos in self.black_position:
                 taken_piece = self.black_pieces.pop(self.black_position.index(pos))
                 self.black_position.remove(pos)
                 self.white_taken.append(taken_piece)
+                return True
+            return False
         else:
             if pos in self.white_position:
                 taken_piece = self.white_pieces.pop(self.white_position.index(pos))
                 self.white_position.remove(pos)
                 self.black_taken.append(taken_piece)
-
+                return True
+            return False
 
 
     def check(self, ally_pos=None, enemy_pos=None, enemy_pieces=None):
@@ -222,26 +238,24 @@ class Game:
             else:
                 king_pos = self.black_position[self.black_pieces.index('king')]
 
-
         enemy_possible_moves = set()
-        if self.white_turn:
-            self.white_turn = False
-        else:
-            self.white_turn = True
+
+        if self.white_turn: self.white_turn = False
+        else: self.white_turn = True
 
         for i in range(len(enemy_pieces)):
-            for move in self.get_moves(enemy_pieces[i], enemy_pos[i], ally_pos):
+            for move in self.get_moves(enemy_pieces[i], enemy_pos[i], ally_pos, enemy_pos):
                 enemy_possible_moves.add(move)
 
-        if self.white_turn:
-            self.white_turn = False
-        else:
-            self.white_turn = True
+        if self.white_turn: self.white_turn = False
+        else: self.white_turn = True
 
         return king_pos in enemy_possible_moves
 
+
     def get_checked_moves(self, moves, selected_piece):
         valid_moves = []
+        invalid_moves = []
         for move in moves:
             if self.white_turn:
                 temp_pos = [pos for pos in self.white_position]
@@ -256,6 +270,7 @@ class Game:
 
                 enemy_pos = [pos for pos in self.white_position]
                 enemy_pieces = [piece for piece in self.white_pieces]
+
             if not self.check(temp_pos):
                 valid_moves.append(move)
 
@@ -265,13 +280,15 @@ class Game:
 
                 if not self.check(temp_pos, enemy_pos, enemy_pieces):
                     valid_moves.append(move)
+                if self.check(temp_pos, enemy_pos, enemy_pieces) and move in valid_moves:
+                    invalid_moves.append(move)
 
-        return valid_moves
+        return list(set(valid_moves) - set(invalid_moves))
+
 
     def add_moves_list(self, piece, pos, category):
         self.move_count += 1
         self.moves_list[self.move_count] = (piece, pos, category)
-        print(self.moves_list)
 
 
     def run(self):
@@ -302,23 +319,29 @@ class Game:
                     try:
                         for move in moves:
                             if mouse_pos == move:
+                                original_pos = piece_pos
+                                self.move_count += 1
                                 if self.white_turn:
-                                    try:
-                                        original_pos = piece_pos
-                                        print(original_pos)
-                                        self.white_position[self.white_position.index(piece_pos)] = move
-                                        self.take_piece(move)
-                                        self.white_turn = False
-                                        self.king_checked = self.check()
-                                    except ValueError: pass
+                                    self.white_position[self.white_position.index(piece_pos)] = move
+                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
+                                    if self.take_piece(move): self.moves_list[self.move_count].append('take')
+                                    self.white_turn = False
+                                    self.king_checked = self.check()
+
                                 else:
-                                    try:
-                                        self.black_position[self.black_position.index(piece_pos)] = move
-                                        self.take_piece(move)
-                                        self.white_turn = True
-                                        self.king_checked = self.check()
-                                    except ValueError: pass
+                                    self.black_position[self.black_position.index(piece_pos)] = move
+                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
+                                    if self.take_piece(move): self.moves_list[self.move_count].append('take')
+                                    self.white_turn = True
+                                    self.king_checked = self.check()
+
                                 pygame.draw.rect(self.display_surface, (130, 151, 105), (move[0] * TILESIZE, self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+                                if self.king_checked:
+                                    self.moves_list[self.move_count].append('check')
+
+                                print()
+                                for x, y in self.moves_list.items():
+                                    print(x, y)
 
                     except UnboundLocalError:
                         pass
@@ -327,8 +350,7 @@ class Game:
                     if selected_piece:
                         last_selected_piece = selected_piece
                         moves = self.get_moves(selected_piece, mouse_pos)
-                        if self.king_checked:
-                            moves = self.get_checked_moves(moves, selected_piece)
+                        moves = self.get_checked_moves(moves, selected_piece)
                     else:
                         moves = []
 
