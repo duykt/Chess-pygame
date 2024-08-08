@@ -1,8 +1,7 @@
 # TODO:
-#  1.) Moves list
-#  2.) En passant
-#  3.) castling
-#  4.) UI
+#  UI STUFF YAY
+#  1.) Make squares and indicators more clear
+#  2.)
 
 import pygame
 from settings import *
@@ -73,22 +72,26 @@ class Game:
                 ally_pos = self.white_position
             else:
                 ally_pos = ally
+
             if enemy is None:
                 enemy_pos = self.black_position
             else:
                 enemy_pos = enemy
+            ally_pieces = self.white_pieces
+
         else:
             if ally is None:
                 ally_pos = self.black_position
             else:
                 ally_pos = ally
+
             if enemy is None:
                 enemy_pos = self.white_position
             else:
                 enemy_pos = enemy
+            ally_pieces = self.black_pieces
+
         possible_moves = []
-
-
 
         if piece == 'pawn':
             # check vertical moves
@@ -114,8 +117,24 @@ class Game:
                 if (pos[0] + x, pos[1] + y) in enemy_pos:
                     possible_moves.append((pos[0] + x, pos[1] + y))
 
-            # check for en passant
+            # en passant
+            # check if last moved piece was a pawn
+            try:
+                if self.moves_list[self.move_count][0] == 'pawn':
+                    # check if pawn moved two spaces
+                    if self.white_turn: squares_moved = self.moves_list[self.move_count][1][1] - self.moves_list[self.move_count][2][1]
+                    else: squares_moved = self.moves_list[self.move_count][2][1] - self.moves_list[self.move_count][1][1]
 
+                    if squares_moved == 2:
+                        if self.moves_list[self.move_count][2][0] == pos[0] + 1 and self.moves_list[self.move_count][2][1] == pos[1]:
+                            if self.white_turn: possible_moves.append((pos[0] + 1, pos[1] + 1))
+                            else: possible_moves.append((pos[0] + 1, pos[1] - 1))
+
+                        elif self.moves_list[self.move_count][2][0] == pos[0] - 1 and self.moves_list[self.move_count][2][1] == pos[1]:
+                            if self.white_turn: possible_moves.append((pos[0] - 1, pos[1] + 1))
+                            else: possible_moves.append((pos[0] - 1, pos[1] - 1))
+
+            except KeyError: pass
 
         if piece == 'knight':
             # vertical movement
@@ -193,29 +212,83 @@ class Game:
                 else: break
 
         if piece == 'king':
+            # king movement
             for x in range(-1, 2):
                 for y in range(-1, 2):
                     if (pos[0] + x, pos[1] + y) not in ally_pos and 0 <= pos[0] + x < 8 and 0 <= pos[1] + y < 8 and (x, y) != (0,0):
                         possible_moves.append((pos[0] + x, pos[1] + y))
+
+            # castle
+            ks_castle = True
+            qs_castle = True
+            if self.white_turn:
+                past_moves = [self.moves_list[i] for i in self.moves_list if i % 2 == 1]
+            else:
+                past_moves = [self.moves_list[i] for i in self.moves_list if i % 2 == 0]
+
+            for move in past_moves:
+                if move[0] == 'king':
+                    ks_castle = False; qs_castle = False
+                    break
+                elif move[0] == 'rook':
+                    if self.white_turn:
+                        if move[1] == (7, 0): ks_castle = False
+                        if move[1] == (0, 0): qs_castle = False
+                    else:
+                        if move[1] == (7, 7): ks_castle = False
+                        if move[1] == (0, 7): qs_castle = False
+
+            castle_moves = []
+            if ks_castle:
+                    if any((pos[0] + x, pos[1]) in ally_pos for x in range(1, 3)):
+                        castle_moves = []
+                    else:
+                        for x in range(1, 3):
+                            castle_moves.append((pos[0] + x, pos[1]))
+            for move in castle_moves:
+                possible_moves.append(move)
+
+            castle_moves = []
+            if qs_castle:
+                if any((pos[0] - x, pos[1]) in ally_pos for x in range(1, 4)):
+                    castle_moves = []
+                else:
+                    for x in range(1, 3):
+                        castle_moves.append((pos[0] - x, pos[1]))
+            for move in castle_moves:
+                possible_moves.append(move)
 
         return possible_moves
 
 
     def take_piece(self, pos) -> bool:
         if self.white_turn:
-            if pos in self.black_position:
-                taken_piece = self.black_pieces.pop(self.black_position.index(pos))
-                self.black_position.remove(pos)
-                self.white_taken.append(taken_piece)
-                return True
-            return False
+            ally_pieces = self.white_pieces
+            ally_pos = self.white_position
+            enemy_pos = self.black_position
+            enemy_pieces = self.black_pieces
         else:
-            if pos in self.white_position:
-                taken_piece = self.white_pieces.pop(self.white_position.index(pos))
-                self.white_position.remove(pos)
-                self.black_taken.append(taken_piece)
+            ally_pieces = self.black_pieces
+            ally_pos = self.black_position
+            enemy_pos =  self.white_position
+            enemy_pieces = self.white_pieces
+
+        # general function
+        if pos in enemy_pos:
+            taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
+            enemy_pos.remove(pos)
+            return True
+
+        # en passant
+        if ally_pieces[ally_pos.index(pos)] == 'pawn':
+            if self.white_turn: pos = (pos[0], pos[1] - 1)
+            else: pos = (pos[0], pos[1] + 1)
+
+            if pos in enemy_pos:
+                taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
+                enemy_pos.remove(pos)
                 return True
-            return False
+        return False
 
 
     def check(self, ally_pos=None, enemy_pos=None, enemy_pieces=None):
@@ -253,20 +326,21 @@ class Game:
         return king_pos in enemy_possible_moves
 
 
-    def get_checked_moves(self, moves, selected_piece):
+    def get_checked_moves(self, moves, selected_piece, piece_pos):
         valid_moves = []
         invalid_moves = []
+
         for move in moves:
             if self.white_turn:
                 temp_pos = [pos for pos in self.white_position]
-                temp_pos[self.white_pieces.index(selected_piece)] = move
+                temp_pos[temp_pos.index(piece_pos)] = move
 
                 enemy_pos = [pos for pos in self.black_position]
                 enemy_pieces = [piece for piece in self.black_pieces]
 
             else:
                 temp_pos = [pos for pos in self.black_position]
-                temp_pos[self.black_pieces.index(selected_piece)] = move
+                temp_pos[temp_pos.index(piece_pos)] = move
 
                 enemy_pos = [pos for pos in self.white_position]
                 enemy_pieces = [piece for piece in self.white_pieces]
@@ -289,6 +363,27 @@ class Game:
     def add_moves_list(self, piece, pos, category):
         self.move_count += 1
         self.moves_list[self.move_count] = (piece, pos, category)
+
+
+    def castle(self, piece, original_pos, move):
+        if self.white_turn:
+            ally_pos = self.white_position
+            ally_pieces = self.white_pieces
+        else:
+            ally_pos = self.black_position
+            ally_pieces = self.black_pieces
+
+        if piece != 'king' or abs(original_pos[0] - move[0]) != 2:
+            return
+        else:
+            if original_pos[0] - move[0] == -2:
+                rook_pos = (original_pos[0] + 3, original_pos[1])
+                ally_pos[ally_pos.index(rook_pos)] = (move[0] - 1, move[1])
+                self.moves_list[self.move_count].append('ks_castle')
+            else:
+                rook_pos = (original_pos[0] - 4, original_pos[1])
+                ally_pos[ally_pos.index(rook_pos)] = (move[0] + 1, move[1])
+                self.moves_list[self.move_count].append('qs_castle')
 
 
     def run(self):
@@ -325,6 +420,7 @@ class Game:
                                     self.white_position[self.white_position.index(piece_pos)] = move
                                     self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
                                     if self.take_piece(move): self.moves_list[self.move_count].append('take')
+                                    self.castle(last_selected_piece, original_pos, move)
                                     self.white_turn = False
                                     self.king_checked = self.check()
 
@@ -332,6 +428,7 @@ class Game:
                                     self.black_position[self.black_position.index(piece_pos)] = move
                                     self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
                                     if self.take_piece(move): self.moves_list[self.move_count].append('take')
+                                    self.castle(last_selected_piece, original_pos, move)
                                     self.white_turn = True
                                     self.king_checked = self.check()
 
@@ -339,9 +436,9 @@ class Game:
                                 if self.king_checked:
                                     self.moves_list[self.move_count].append('check')
 
-                                print()
-                                for x, y in self.moves_list.items():
-                                    print(x, y)
+                                # print()
+                                # for x, y in self.moves_list.items():
+                                #     print(x, y)
 
                     except UnboundLocalError:
                         pass
@@ -349,8 +446,8 @@ class Game:
                     # determine possible moves of selected piece
                     if selected_piece:
                         last_selected_piece = selected_piece
-                        moves = self.get_moves(selected_piece, mouse_pos)
-                        moves = self.get_checked_moves(moves, selected_piece)
+                        moves = self.get_moves(selected_piece, piece_pos)
+                        moves = self.get_checked_moves(moves, selected_piece, piece_pos)
                     else:
                         moves = []
 
@@ -360,7 +457,7 @@ class Game:
                             pairs = [(self.white_pieces[i], self.white_position[i]) for i in range(len(self.white_pieces))]
                         else:
                             pairs = [(self.black_pieces[i], self.black_position[i]) for i in range(len(self.black_pieces))]
-                        if any(len(self.get_checked_moves(self.get_moves(pair[0], pair[1]), pair[0])) != 0 for pair in pairs):
+                        if any(len(self.get_checked_moves(self.get_moves(pair[0], pair[1]), pair[0], pair[1])) != 0 for pair in pairs):
                             pass
                         else:
                             print('checkmate')
