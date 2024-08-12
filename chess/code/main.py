@@ -1,9 +1,12 @@
 # TODO:
 #  UI STUFF YAY
 #  1.) Make squares and indicators more clear
-#  2.)
+#  2.) make bg cleaner
+#  3.) show moves list
+# NEED TO DO PROMOTION HAHAHAHAHAHAHAHAHAHAHAHAHAH
 
 import pygame
+import pygame_menu
 from settings import *
 from support import  *
 import time
@@ -17,10 +20,13 @@ class Game:
         self.clock = pygame.Clock()
         self.running = True
         self.import_assets()
+        self.display_surface.fill((20, 20, 20))
+        self.font = pygame.font.Font(None, 15)
 
         # game
         self.white_turn = True
         self.king_checked = False
+        self.last_move = str
 
         # board
         self.board_image = pygame.image.load(join('..', 'images', 'board.png')).convert_alpha()
@@ -40,15 +46,31 @@ class Game:
         self.moves_list = {}
         self.move_count = 0
 
+        # update
         self.update_board()
-
+        self.update_ui()
 
     def update_board(self):
+        # draw board notation
+        for i in range(len(LETTERS)):
+            if i % 2 == 0: color = (230, 234, 215)
+            else: color = (69, 77, 95)
+
+            text_surf = self.font.render(LETTERS[i], True, color)
+            text_rect = text_surf.get_frect(bottomleft=(self.board_rect.bottomleft[0] + 2 + i * TILESIZE, self.board_rect.bottomleft[1]))
+            self.display_surface.blit(text_surf, text_rect)
+
+            num_surf = self.font.render(str(8-i), True, color)
+            num_rect = num_surf.get_frect(bottomleft=(self.board_rect.topright[0] - 7, self.board_rect.topright[1] + 12 + i * TILESIZE))
+            self.display_surface.blit(num_surf, num_rect)
+
+        # draw white pieces
         for i in range(len(self.white_pieces)):
             image = pygame.transform.scale_by(self.white_surfs[self.white_pieces[i]], 5)
             rect = image.get_frect(bottomleft=(self.board_rect.bottomleft[0] + self.white_position[i][0] * TILESIZE, self.board_rect.bottomleft[1] - self.white_position[i][1] * TILESIZE))
             self.display_surface.blit(image, rect)
 
+        # draw black pieces
         for i in range(len(self.black_pieces)):
             image = pygame.transform.scale_by(self.black_surfs[self.black_pieces[i]], 5)
             rect = image.get_frect(bottomleft=(self.board_rect.bottomleft[0] + self.black_position[i][0] * TILESIZE, self.board_rect.bottomleft[1] - self.black_position[i][1] * TILESIZE))
@@ -62,7 +84,7 @@ class Game:
 
     def draw_moves(self, moves):
         for move in moves:
-            pygame.draw.circle(self.display_surface, (130, 151, 105),
+            pygame.draw.circle(self.display_surface, (150, 180, 105),
                                ((move[0] * TILESIZE + TILESIZE/2), (self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE/2)), 10)
 
 
@@ -265,17 +287,20 @@ class Game:
         if self.white_turn:
             ally_pieces = self.white_pieces
             ally_pos = self.white_position
+            taken_pieces = self.white_taken
             enemy_pos = self.black_position
             enemy_pieces = self.black_pieces
         else:
             ally_pieces = self.black_pieces
             ally_pos = self.black_position
+            taken_pieces = self.black_taken
             enemy_pos =  self.white_position
             enemy_pieces = self.white_pieces
 
         # general function
         if pos in enemy_pos:
             taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
+            taken_pieces.append(taken_piece)
             enemy_pos.remove(pos)
             return True
 
@@ -286,6 +311,7 @@ class Game:
 
             if pos in enemy_pos:
                 taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
+                taken_pieces.append(taken_piece)
                 enemy_pos.remove(pos)
                 return True
         return False
@@ -386,6 +412,32 @@ class Game:
                 self.moves_list[self.move_count].append('qs_castle')
 
 
+    def update_ui(self):
+        # draw rect for bg
+        pygame.draw.rect(self.display_surface, (60, 60, 60),(650, 250, 800, 140))
+
+        # text displaying 'white' and 'black'
+        text_font = pygame.font.Font(None, 50)
+        text_surf = text_font.render('White', True, 'white')
+        text_rect = text_surf.get_frect(bottomleft=(655, 320))
+        self.display_surface.blit(text_surf, text_rect)
+
+        text_surf = text_font.render('Black', True, 'white')
+        text_rect = text_surf.get_frect(topleft=(655, 325))
+        self.display_surface.blit(text_surf, text_rect)
+
+        # displaying icon of pieces taken
+        for i in range(len(self.white_taken)):
+            piece_surf = self.black_surfs[self.white_taken[i]]
+            piece_rect = piece_surf.get_frect(topleft=(655 + (16 * i), 260))
+            self.display_surface.blit(piece_surf, piece_rect)
+
+        for i in range(len(self.black_taken)):
+            piece_surf = self.white_surfs[self.black_taken[i]]
+            piece_rect = piece_surf.get_frect(bottomleft=(655 + (16 * i), 375))
+            self.display_surface.blit(piece_surf, piece_rect)
+
+
     def run(self):
         while self.running:
             dt = self.clock.tick() / 1000
@@ -403,45 +455,53 @@ class Game:
                         if mouse_pos in self.white_position:
                             selected_piece = self.white_pieces[self.white_position.index(mouse_pos)]
                             piece_pos = mouse_pos
-                            pygame.draw.rect(self.display_surface, (130, 151, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+                            pygame.draw.rect(self.display_surface, (150, 180, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
                     else:
                         if mouse_pos in self.black_position:
                             selected_piece = self.black_pieces[self.black_position.index(mouse_pos)]
                             piece_pos = mouse_pos
-                            pygame.draw.rect(self.display_surface, (130, 151, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+                            pygame.draw.rect(self.display_surface, (150, 180, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
 
                     # if piece is selected and mouse click is in tile of a possible move, change location of piece, else pass
                     try:
                         for move in moves:
                             if mouse_pos == move:
                                 original_pos = piece_pos
+                                self.last_move = move
                                 self.move_count += 1
                                 if self.white_turn:
-                                    self.white_position[self.white_position.index(piece_pos)] = move
-                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
-                                    if self.take_piece(move): self.moves_list[self.move_count].append('take')
-                                    self.castle(last_selected_piece, original_pos, move)
+                                    self.white_position[self.white_position.index(piece_pos)] = self.last_move
+                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
+                                    if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
+                                    self.castle(last_selected_piece, original_pos, self.last_move)
                                     self.white_turn = False
                                     self.king_checked = self.check()
-
                                 else:
-                                    self.black_position[self.black_position.index(piece_pos)] = move
-                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, move]
-                                    if self.take_piece(move): self.moves_list[self.move_count].append('take')
-                                    self.castle(last_selected_piece, original_pos, move)
+                                    self.black_position[self.black_position.index(piece_pos)] = self.last_move
+                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
+                                    if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
+                                    self.castle(last_selected_piece, original_pos, self.last_move)
                                     self.white_turn = True
                                     self.king_checked = self.check()
 
-                                pygame.draw.rect(self.display_surface, (130, 151, 105), (move[0] * TILESIZE, self.board_rect.bottomleft[1] - move[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
                                 if self.king_checked:
                                     self.moves_list[self.move_count].append('check')
 
-                                # print()
-                                # for x, y in self.moves_list.items():
-                                #     print(x, y)
-
+                                self.white_taken = sorted(self.white_taken, key=lambda piece: (POINTS[piece], piece))
+                                self.black_taken = sorted(self.black_taken, key=lambda piece: (POINTS[piece], piece))
                     except UnboundLocalError:
                         pass
+
+                    # highlight squares of moved piece
+                    try:
+                        pygame.draw.rect(self.display_surface, (150, 180, 105), (original_pos[0] * TILESIZE, self.board_rect.bottomleft[1] - original_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+                        pygame.draw.rect(self.display_surface, (120, 150, 75), (self.last_move[0] * TILESIZE, self.board_rect.bottomleft[1] - self.last_move[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
+                    except UnboundLocalError: pass
+
+                    # draw 'checked' indicator
+                    if self.king_checked:
+                        king_pos = self.white_position[self.white_pieces.index('king')] if self.white_turn else self.black_position[self.black_pieces.index('king')]
+                        pygame.draw.rect(self.display_surface, (233, 52, 43), (king_pos[0] * TILESIZE, self.board_rect.bottomleft[1] - king_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
 
                     # determine possible moves of selected piece
                     if selected_piece:
@@ -462,17 +522,12 @@ class Game:
                         else:
                             print('checkmate')
 
-                    # draw 'checked' indicator
-                    if self.king_checked:
-                        king_pos = self.white_position[self.white_pieces.index('king')] if self.white_turn else self.black_position[self.black_pieces.index('king')]
-                        pygame.draw.rect(self.display_surface, (231, 31, 17), (king_pos[0] * TILESIZE, self.board_rect.bottomleft[1] - king_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
-
-
                     self.update_board()
                     self.draw_moves(moves)
 
 
             # draw
+            self.update_ui()
             pygame.display.update()
 
         pygame.quit()

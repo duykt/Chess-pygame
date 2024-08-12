@@ -2,7 +2,7 @@ import pygame
 from os.path import join
 from os import walk
 
-WINDOW_WIDTH, WINDOW_HEIGHT = 1280,720
+WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 640
 TILESIZE = 80
 
 BOARD_BOTTOM_LEFT = (0, 640)
@@ -18,3 +18,7 @@ BLACK_PIECES = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight',
 
 BLACK_POSITION = [(0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7),
                   (0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6)]
+
+LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+POINTS = {'pawn' : 1, 'knight' : 3, 'bishop' : 3, 'rook' : 5, 'queen' : 9}
