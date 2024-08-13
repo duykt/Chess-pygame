@@ -1,9 +1,4 @@
-# TODO:
-#  UI STUFF YAY
-#  1.) Make squares and indicators more clear
-#  2.) make bg cleaner
-#  3.) show moves list
-# NEED TO DO PROMOTION HAHAHAHAHAHAHAHAHAHAHAHAHAH
+# implement stalemate and fix formatting
 
 import pygame
 import pygame_menu
@@ -20,12 +15,13 @@ class Game:
         self.clock = pygame.Clock()
         self.running = True
         self.import_assets()
-        self.display_surface.fill((20, 20, 20))
+        self.display_surface.fill((30, 30, 30))
         self.font = pygame.font.Font(None, 15)
 
         # game
         self.white_turn = True
         self.king_checked = False
+        self.pawn_promotion = False
         self.last_move = str
 
         # board
@@ -43,8 +39,11 @@ class Game:
         # data
         self.white_taken = []
         self.black_taken = []
+        self.white_points = 0
+        self.black_points = 0
         self.moves_list = {}
         self.move_count = 0
+        self.promotion_options = {}
 
         # update
         self.update_board()
@@ -119,14 +118,14 @@ class Game:
             # check vertical moves
             if self.white_turn:
                 for y in range(1, 3 if pos[1] == 1 else 2):
-                    if (pos[0], pos[1] + y) in enemy_pos:
+                    if (pos[0], pos[1] + y) in enemy_pos or pos[1] + y > 7:
                         break
                     elif (pos[0], pos[1] + y) not in ally_pos:
                         possible_moves.append((pos[0], pos[1] + y))
                     else: break
             else:
                 for y in range(-1, -3 if pos[1] == 6 else -2,  -1):
-                    if (pos[0], pos[1] + y) in enemy_pos:
+                    if (pos[0], pos[1] + y) in enemy_pos or pos[1] + y < 0:
                         break
                     elif (pos[0], pos[1] + y) not in ally_pos:
                         possible_moves.append((pos[0], pos[1] + y))
@@ -302,6 +301,9 @@ class Game:
             taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
             taken_pieces.append(taken_piece)
             enemy_pos.remove(pos)
+            if self.white_turn: self.white_points += POINTS[taken_piece]
+            else: self.black_points += POINTS[taken_piece]
+
             return True
 
         # en passant
@@ -313,6 +315,8 @@ class Game:
                 taken_piece = enemy_pieces.pop(enemy_pos.index(pos))
                 taken_pieces.append(taken_piece)
                 enemy_pos.remove(pos)
+                if self.white_turn: self.white_points += POINTS[taken_piece]
+                else: self.black_points += POINTS[taken_piece]
                 return True
         return False
 
@@ -414,28 +418,102 @@ class Game:
 
     def update_ui(self):
         # draw rect for bg
-        pygame.draw.rect(self.display_surface, (60, 60, 60),(650, 250, 800, 140))
+        pygame.draw.rect(self.display_surface, (60, 60, 60),(645, 250, 310, 140))
 
         # text displaying 'white' and 'black'
         text_font = pygame.font.Font(None, 50)
         text_surf = text_font.render('White', True, 'white')
-        text_rect = text_surf.get_frect(bottomleft=(655, 320))
+        text_rect = text_surf.get_frect(topleft=(655, 325))
         self.display_surface.blit(text_surf, text_rect)
 
         text_surf = text_font.render('Black', True, 'white')
-        text_rect = text_surf.get_frect(topleft=(655, 325))
+        text_rect = text_surf.get_frect(bottomleft=(655, 320))
         self.display_surface.blit(text_surf, text_rect)
 
         # displaying icon of pieces taken
         for i in range(len(self.white_taken)):
             piece_surf = self.black_surfs[self.white_taken[i]]
-            piece_rect = piece_surf.get_frect(topleft=(655 + (16 * i), 260))
+            piece_rect = piece_surf.get_frect(bottomleft=(655 + (16 * i), 375))
             self.display_surface.blit(piece_surf, piece_rect)
 
         for i in range(len(self.black_taken)):
             piece_surf = self.white_surfs[self.black_taken[i]]
-            piece_rect = piece_surf.get_frect(bottomleft=(655 + (16 * i), 375))
+            piece_rect = piece_surf.get_frect(topleft=(655 + (16 * i), 260))
             self.display_surface.blit(piece_surf, piece_rect)
+
+        # turn indicator
+        if self.white_turn:
+            pygame.draw.circle(self.display_surface, (80, 200, 120), (762, 345), 4)
+        else:
+            pygame.draw.circle(self.display_surface, (80, 200, 120), (762, 300), 4)
+
+
+    def update_points(self):
+        # display points
+        text_font = pygame.font.Font(None, 20)
+
+        points = abs(self.white_points - self.black_points)
+        if self.white_points > self.black_points:
+            text_surf = text_font.render(f'+{points}', True, 'white')
+            text_rect = text_surf.get_frect(bottomleft=(655 + (16 * len(self.white_taken)), 375))
+            self.display_surface.blit(text_surf, text_rect)
+
+        elif self.black_points > self.white_points:
+            text_surf = text_font.render(f'+{points}', True, 'white')
+            text_rect = text_surf.get_frect(topleft=(655 + (16 * len(self.black_taken)), 260))
+            self.display_surface.blit(text_surf, text_rect)
+
+
+    def draw_promotion(self):
+        self.promotion_options = {}
+        if self.white_turn:
+            for i in range(len(self.white_pieces)):
+                if self.white_pieces[i] == 'pawn' and self.white_position[i][1] == 7:
+                    pos = self.white_position[i]
+                    self.update_board()
+                    pygame.draw.rect(self.display_surface, 'black', (pos[0] * TILESIZE, 0, 80, 320))
+                    pygame.draw.rect(self.display_surface, 'white', (pos[0] * TILESIZE + 3, 3, 74, 314))
+
+                    queen_surf = pygame.transform.scale_by(self.white_surfs['queen'], 5)
+                    self.display_surface.blit(queen_surf, (pos[0] * TILESIZE, 0))
+                    self.promotion_options['queen'] = (pos[0], pos[1])
+
+                    knight_surf = pygame.transform.scale_by(self.white_surfs['knight'], 5)
+                    self.display_surface.blit(knight_surf, (pos[0] * TILESIZE, 80))
+                    self.promotion_options['knight'] = (pos[0], pos[1] - 1)
+
+                    rook_surf = pygame.transform.scale_by(self.white_surfs['rook'], 5)
+                    self.display_surface.blit(rook_surf, (pos[0] * TILESIZE, 160))
+                    self.promotion_options['rook'] = (pos[0], pos[1] - 2)
+
+                    bishop_surf = pygame.transform.scale_by(self.white_surfs['bishop'], 5)
+                    self.display_surface.blit(bishop_surf, (pos[0] * TILESIZE, 240))
+                    self.promotion_options['bishop'] = (pos[0], pos[1] - 3)
+
+
+        else:
+            for i in range(len(self.black_pieces)):
+                if self.black_pieces[i] == 'pawn' and self.black_position[i][1] == 0:
+                    pos = self.black_position[i]
+                    self.update_board()
+                    pygame.draw.rect(self.display_surface, 'black', (pos[0] * TILESIZE, 320, 80, 320))
+                    pygame.draw.rect(self.display_surface, 'white', (pos[0] * TILESIZE + 3, 323, 74, 314))
+
+                    queen_surf = pygame.transform.scale_by(self.black_surfs['queen'], 5)
+                    self.display_surface.blit(queen_surf, (pos[0] * TILESIZE, 560))
+                    self.promotion_options['queen'] = (pos[0], pos[1])
+
+                    knight_surf = pygame.transform.scale_by(self.black_surfs['knight'], 5)
+                    self.display_surface.blit(knight_surf, (pos[0] * TILESIZE, 480))
+                    self.promotion_options['knight'] = (pos[0], pos[1] + 1)
+
+                    rook_surf = pygame.transform.scale_by(self.black_surfs['rook'], 5)
+                    self.display_surface.blit(rook_surf, (pos[0] * TILESIZE, 400))
+                    self.promotion_options['rook'] = (pos[0], pos[1] + 2)
+
+                    bishop_surf = pygame.transform.scale_by(self.black_surfs['bishop'], 5)
+                    self.display_surface.blit(bishop_surf, (pos[0] * TILESIZE, 320))
+                    self.promotion_options['bishop'] = (pos[0], pos[1] + 3)
 
 
     def run(self):
@@ -451,46 +529,85 @@ class Game:
                     selected_piece = None
 
                     # match location of mouse click with tile/piece
-                    if self.white_turn:
+                    if self.white_turn and not self.pawn_promotion:
                         if mouse_pos in self.white_position:
                             selected_piece = self.white_pieces[self.white_position.index(mouse_pos)]
                             piece_pos = mouse_pos
                             pygame.draw.rect(self.display_surface, (150, 180, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
-                    else:
+                    if not self.white_turn and not self.pawn_promotion:
                         if mouse_pos in self.black_position:
                             selected_piece = self.black_pieces[self.black_position.index(mouse_pos)]
                             piece_pos = mouse_pos
                             pygame.draw.rect(self.display_surface, (150, 180, 105),(mouse_pos[0] * TILESIZE,self.board_rect.bottomleft[1] - mouse_pos[1] * TILESIZE - TILESIZE, TILESIZE, TILESIZE))
 
                     # if piece is selected and mouse click is in tile of a possible move, change location of piece, else pass
-                    try:
-                        for move in moves:
-                            if mouse_pos == move:
-                                original_pos = piece_pos
-                                self.last_move = move
-                                self.move_count += 1
-                                if self.white_turn:
-                                    self.white_position[self.white_position.index(piece_pos)] = self.last_move
-                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
-                                    if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
-                                    self.castle(last_selected_piece, original_pos, self.last_move)
-                                    self.white_turn = False
-                                    self.king_checked = self.check()
-                                else:
-                                    self.black_position[self.black_position.index(piece_pos)] = self.last_move
-                                    self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
-                                    if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
-                                    self.castle(last_selected_piece, original_pos, self.last_move)
-                                    self.white_turn = True
-                                    self.king_checked = self.check()
+                    if not self.pawn_promotion:
+                        try:
+                            for move in moves:
+                                if mouse_pos == move:
+                                    original_pos = piece_pos
+                                    self.last_move = move
+                                    self.move_count += 1
 
+                                    if self.white_turn:
+                                        self.white_position[self.white_position.index(piece_pos)] = self.last_move
+                                        self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
+
+                                        if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
+                                        self.castle(last_selected_piece, original_pos, self.last_move)
+                                        if move[1] == 7 and last_selected_piece == 'pawn':
+                                            self.pawn_promotion = True
+                                            break
+
+                                        self.white_turn = False
+                                        self.king_checked = self.check()
+                                    else:
+                                        self.black_position[self.black_position.index(piece_pos)] = self.last_move
+                                        self.moves_list[self.move_count] = [last_selected_piece, original_pos, self.last_move]
+
+                                        if self.take_piece(self.last_move): self.moves_list[self.move_count].append('take')
+                                        self.castle(last_selected_piece, original_pos, self.last_move)
+                                        if move[1] == 0 and last_selected_piece == 'pawn':
+                                            self.pawn_promotion = True
+                                            break
+
+                                        self.white_turn = True
+                                        self.king_checked = self.check()
+
+                                    self.update_ui()
+                                    self.update_points()
+                                    if self.king_checked:
+                                        self.moves_list[self.move_count].append('check')
+
+                                    self.white_taken = sorted(self.white_taken, key=lambda piece: (POINTS[piece], piece))
+                                    self.black_taken = sorted(self.black_taken, key=lambda piece: (POINTS[piece], piece))
+                        except UnboundLocalError:
+                            pass
+
+                    if self.pawn_promotion and mouse_pos in self.promotion_options.values():
+                        for piece, pos in self.promotion_options.items():
+                            if pos == mouse_pos:
+                                if self.white_turn:
+                                    self.white_pieces[self.white_position.index(self.promotion_options['queen'])] = piece
+                                    self.white_turn = False
+                                    self.pawn_promotion = False
+                                    self.king_checked = self.check()
+                                    self.white_points += POINTS[piece] - 1
+                                else:
+                                    self.black_pieces[self.black_position.index(self.promotion_options['queen'])] = piece
+                                    self.white_turn = True
+                                    self.pawn_promotion = False
+                                    self.king_checked = self.check()
+                                    self.black_points += POINTS[piece] - 1
+                                self.update_ui()
+                                self.update_points()
                                 if self.king_checked:
                                     self.moves_list[self.move_count].append('check')
 
-                                self.white_taken = sorted(self.white_taken, key=lambda piece: (POINTS[piece], piece))
-                                self.black_taken = sorted(self.black_taken, key=lambda piece: (POINTS[piece], piece))
-                    except UnboundLocalError:
-                        pass
+                    # get desired pawn promotion
+                    if self.pawn_promotion:
+                        self.draw_promotion()
+                        break
 
                     # highlight squares of moved piece
                     try:
@@ -520,14 +637,13 @@ class Game:
                         if any(len(self.get_checked_moves(self.get_moves(pair[0], pair[1]), pair[0], pair[1])) != 0 for pair in pairs):
                             pass
                         else:
-                            print('checkmate')
+                            self.running = False
 
                     self.update_board()
                     self.draw_moves(moves)
 
 
             # draw
-            self.update_ui()
             pygame.display.update()
 
         pygame.quit()

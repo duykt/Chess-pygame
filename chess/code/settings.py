@@ -2,7 +2,7 @@ import pygame
 from os.path import join
 from os import walk
 
-WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 640
+WINDOW_WIDTH, WINDOW_HEIGHT = 960, 640
 TILESIZE = 80
 
 BOARD_BOTTOM_LEFT = (0, 640)
